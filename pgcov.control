@@ -1,0 +1,5 @@
+comment = 'pgcov'
+default_version = '1.0'
+
+relocatable = false
+schema = 'pgcov'
