@@ -128,6 +128,7 @@ fniter_stmt_iterate(PLpgSQL_function *func, PLpgSQL_stmt *stmt, fniter_context *
 		case PLPGSQL_STMT_RETURN_QUERY:
 		case PLPGSQL_STMT_RAISE:
 		case PLPGSQL_STMT_EXECSQL:
+		case PLPGSQL_STMT_DYNEXECUTE:
 		case PLPGSQL_STMT_GETDIAG:
 		case PLPGSQL_STMT_OPEN:
 		case PLPGSQL_STMT_FETCH:
