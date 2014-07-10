@@ -782,7 +782,6 @@ pgcov_plpgsql_func_beg(PLpgSQL_execstate *estate,
 {
 	MemoryContext oldctx;
 	HeapTuple proctup;
-	Form_pg_proc procform;
 	pgcovStackFrame *fn;
 	Datum prosrc;
 	bool isnull;
@@ -802,7 +801,6 @@ pgcov_plpgsql_func_beg(PLpgSQL_execstate *estate,
 	if (!HeapTupleIsValid(proctup))
 		elog(ERROR, "cache lookup failed for function %u", fn->fnoid);
 
-	procform = (Form_pg_proc) GETSTRUCT(proctup);
 	prosrc = SysCacheGetAttr(PROCOID, proctup, Anum_pg_proc_prosrc, &isnull);
 	if (isnull)
 		elog(ERROR, "unexpected null prosrc for function %u", fn->fnoid);
