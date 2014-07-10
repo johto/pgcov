@@ -244,10 +244,13 @@ nw_buf_has_message(pgcovNetworkConn *conn)
 static void
 nw_buf_discard_message(pgcovNetworkConn *conn)
 {
+	int32 msglen;
+	int32 remaining;
+
 	Assert(nw_buf_has_message(conn));
-	int32 msglen = (int32) nw_peek_uint32(conn->rcvbuf.data + 1) + 1;
+	msglen = (int32) nw_peek_uint32(conn->rcvbuf.data + 1) + 1;
 	Assert(conn->rcvbuf.len >= msglen);
-	int32 remaining = conn->rcvbuf.len - msglen;
+	remaining = conn->rcvbuf.len - msglen;
 	if (remaining > 0)
 	{
 		memmove(conn->rcvbuf.data, conn->rcvbuf.data + msglen, remaining);
