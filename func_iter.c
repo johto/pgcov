@@ -81,19 +81,19 @@ fniter_stmt_iterate(PLpgSQL_function *func, PLpgSQL_stmt *stmt, fniter_context *
 				if (fniter_body_iterate(func, stmt, ifstmt->false_body, context))
 					return true;
 #else
-                if (fniter_body_iterate(func, stmt, ifstmt->then_body, context))
+				if (fniter_body_iterate(func, stmt, ifstmt->then_body, context))
 					return true;
-                if (ifstmt->elsif_list)
-                {
-                    ListCell *lc;
+				if (ifstmt->elsif_list)
+				{
+					ListCell *lc;
 
-                    foreach(lc, ifstmt->elsif_list)
+					foreach(lc, ifstmt->elsif_list)
 					{
-                        if (fniter_body_iterate(func, stmt, ((PLpgSQL_if_elsif *) lfirst(lc))->stmts, context))
+						if (fniter_body_iterate(func, stmt, ((PLpgSQL_if_elsif *) lfirst(lc))->stmts, context))
 							return true;
 					}
-                }
-                if (fniter_body_iterate(func, stmt, ifstmt->else_body, context))
+				}
+				if (fniter_body_iterate(func, stmt, ifstmt->else_body, context))
 					return true;
 #endif
 			}

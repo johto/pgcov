@@ -506,8 +506,8 @@ pgcov_function_coverage_sfunc(Oid fnoid, char *fnsignature, int32 ncalls,
 	 * REPLACE.
 	 */
 	if ((prosrc == NULL && fn->prosrc == NULL) ||
-        (prosrc != NULL && fn->prosrc != NULL &&
-            strcmp(fn->prosrc, prosrc) == 0))
+		(prosrc != NULL && fn->prosrc != NULL &&
+			strcmp(fn->prosrc, prosrc) == 0))
 	{
 		ListCell *lc1, *lc2;
 
