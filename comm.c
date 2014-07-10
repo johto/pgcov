@@ -346,7 +346,7 @@ pgcov_start_listener(pgcovNest *nest)
 	}
 	freeaddrinfo(res);
 
-	if (listen(sockfd, 15) < 0)
+	if (listen(sockfd, 64) < 0)
 	{
 		int listen_error = errno;
 		close(sockfd);
@@ -369,7 +369,7 @@ pgcov_start_listener(pgcovNest *nest)
 	{
 		int i;
 
-		nest->max_workers = 15; /* TODO */
+		nest->max_workers = MaxBackends;
 		nest->workers = (pgcovWorker *) palloc(sizeof(pgcovWorker) * nest->max_workers);
 		nest->nworkers = 0;
 		for (i = 0; i < nest->max_workers; i++)
