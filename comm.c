@@ -157,9 +157,9 @@ nw_client_done(pgcovNetworkConn *conn)
 	Assert(conn->sendbuf.len == 0);
 
 	/*
-	 * Send the DONE message and give the "nest" process a chance to close the
-	 * connection.  This should ensure that we don't lose messages under normal
-	 * operation.
+	 * Send the DONE message and wait for the "nest" process to respond with a
+	 * DONE of its own.  This should ensure that we don't lose messages under
+	 * normal operation.
 	 */
 	nw_append_msg(conn, PGCOV_MSG_DONE);
 	nw_flush_msg(conn);
@@ -186,8 +186,8 @@ nw_client_done(pgcovNetworkConn *conn)
 		}
 		else if (ret == 0)
 		{
-			elog(WARNING, "connection not closed by the server after PGCOV_MSG_DONE");
-			break;
+			elog(WARNING, "still waiting for ACK from the nest process");
+			continue;
 		}
 
 		ret = recv(conn->sockfd, &buf, 1, 0);
@@ -196,15 +196,18 @@ nw_client_done(pgcovNetworkConn *conn)
 			CHECK_FOR_INTERRUPTS();
 			continue;
 		}
-		else if (ret != 0)
+		else if (ret == 1)
 		{
-			Assert(ret == -1);
-			elog(WARNING, "recv() failed: %d, %s", ret, strerror(errno));
+			if (buf != PGCOV_MSG_DONE)
+				elog(FATAL, "unexpected message %d from server", buf);
+			break;
 		}
-		/* closed, we're done */
-		break;
+		else
+		{
+			Assert(ret == 0);
+			elog(ERROR, "nest process closed connection");
+		}
 	}
-	nw_shutdown(conn);
 }
 
 static void
@@ -212,8 +215,11 @@ nw_shutdown(pgcovNetworkConn *conn)
 {
 	if (conn->sendbuf.data != NULL)
 		pfree(conn->sendbuf.data);
-	(void) shutdown(conn->sockfd, SHUT_RDWR);
-	close(conn->sockfd);
+	if (conn->sockfd != -1)
+	{
+		(void) shutdown(conn->sockfd, SHUT_RDWR);
+		close(conn->sockfd);
+	}
 }
 
 
@@ -276,8 +282,16 @@ nw_parse_message(pgcovWorker *worker)
 				break;
 
 			case PGCOV_MSG_DONE:
-				worker->done = true;
-				return;
+				if (conn->rcvbuf.len != 5)
+					elog(ERROR, "unexpected rcvbuf len %d after PGCOV_MSG_DONE", conn->rcvbuf.len);
+				conn->rcvbuf.len = 0;
+				errno = 0;
+				if (send(conn->sockfd, conn->rcvbuf.data, 1, 0) != 1)
+				{
+					elog(WARNING, "could not respond to PGCOV_MSG_DONE: %s", strerror(errno));
+					worker->done = true;
+				}
+				break;
 
 			default:
 				elog(ERROR, "unrecognized message type %d", conn->rcvbuf.data[0]);
@@ -476,8 +490,11 @@ pgcov_parse_worker_data(pgcovWorker *worker)
 	}
 	PG_CATCH();
 	{
+		ErrorData *ed;
+		/* there's probably a better way to do this */
+		ed = CopyErrorData();
+		elog(WARNING, "worker failed: %s", ed->message);
 		FlushErrorState();
-
 		MemoryContextSwitchTo(currcxt);
 		success = false;
 	}
@@ -633,41 +650,57 @@ pgcov_worker_connect(pgcovNetworkConn *conn, const char *nest_entrance)
 	//nw_append_binary(conn, hello_magic, strlen(hello_magic));
 }
 
+static pgcovNetworkConn *worker_conn = NULL;
+
 void
 pgcov_emit_function_coverage_report(const pgcovStackFrame *fn)
 {
 	ListCell *lc;
-	pgcovNetworkConn conn;
 	char nest_entrance[MAX_ENTRANCE_SIZE];
+	MemoryContext oldcxt;
 
 	if (!pgcov_get_active_listener(nest_entrance))
 		return;
 
-	conn.sockfd = -1;
+	oldcxt = MemoryContextSwitchTo(TopMemoryContext);
+
 	PG_TRY();
 	{
-		pgcov_worker_connect(&conn, nest_entrance);
-		nw_append_msg(&conn, PGCOV_MSG_COVERAGE_REPORT);
-		nw_append_uint32(&conn, (uint32) MyDatabaseId);
-		nw_append_string(&conn, fn->fnsignature);
-		nw_append_uint32(&conn, 1); /* XXX ncalls is always 1 currently */
-		nw_append_uint32(&conn, fn->fnoid);
-		nw_append_string(&conn, fn->prosrc);
-		nw_append_int32(&conn, (int32) list_length(fn->lines));
+		if (worker_conn == NULL)
+		{
+			worker_conn = (pgcovNetworkConn *) palloc(sizeof(pgcovNetworkConn));
+			worker_conn->sockfd = -1;
+			worker_conn->sendbuf.data = NULL;
+			pgcov_worker_connect(worker_conn, nest_entrance);
+		}
+
+		nw_append_msg(worker_conn, PGCOV_MSG_COVERAGE_REPORT);
+		nw_append_uint32(worker_conn, (uint32) MyDatabaseId);
+		nw_append_string(worker_conn, fn->fnsignature);
+		nw_append_uint32(worker_conn, 1); /* XXX ncalls is always 1 currently */
+		nw_append_uint32(worker_conn, fn->fnoid);
+		nw_append_string(worker_conn, fn->prosrc);
+		nw_append_int32(worker_conn, (int32) list_length(fn->lines));
 		foreach(lc, fn->lines)
 		{
 			pgcovFunctionLine *line = (pgcovFunctionLine *) lfirst(lc);
-			nw_append_int32(&conn, line->lineno);
-			nw_append_int32(&conn, line->num_executed);
+			nw_append_int32(worker_conn, line->lineno);
+			nw_append_int32(worker_conn, line->num_executed);
 		}
-		nw_flush_msg(&conn);
-		nw_client_done(&conn);
+		nw_flush_msg(worker_conn);
+		nw_client_done(worker_conn);
 	}
 	PG_CATCH();
 	{
-		if (conn.sockfd != -1)
-			close(conn.sockfd);
+		if (worker_conn != NULL)
+		{
+			nw_shutdown(worker_conn);
+			pfree(worker_conn);
+			worker_conn = NULL;
+		}
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
+
+	MemoryContextSwitchTo(oldcxt);
 }
