@@ -11,7 +11,7 @@ ifdef NO_PGXS
 PG_CPPFLAGS += -I\$(top_srcdir)/src/pl/plpgsql/src/
 subdir = contrib/pgcov
 top_builddir = ../..
-include $(top_builddir)/src/Makefile.Global
+include $(top_builddir)/src/Makefile.global
 include $(top_srcdir)/contrib/contrib-global.mk
 else
 PG_CONFIG = pg_config
