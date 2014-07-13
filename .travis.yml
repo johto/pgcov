@@ -5,6 +5,7 @@ compiler: gcc
 install:
   - sudo /etc/init.d/postgresql stop
   - sudo apt-get -y --purge remove postgresql libpq-dev libpq5 postgresql-client-common postgresql-common
+  - cd
   - curl -LO "http://ftp.postgresql.org/pub/snapshot/${PGVERSION}/postgresql${FTPPATH}-snapshot.tar.bz2"
   - mkdir postgresql-${PGVERSION}
   - tar jxf postgresql${FTPPATH}-snapshot.tar.bz2 -C postgresql-${PGVERSION} --strip-components 1
@@ -13,11 +14,14 @@ install:
   - popd
   - echo "override CFLAGS += -Werror" >> Makefile
   - PATH=/usr/local/pgsql/bin:$PATH pg_config
+  - mv ${TRAVIS_BUILD_DIR} postgresql-${PGVERSION}/contrib/
+  - cd postgresql-${PGVERSION}/contrib/$(basename ${TRAVIS_BUILD_DIR})
 
 env:
   matrix:
     - PGVERSION=dev FTPPATH=""
     - PGVERSION=9.3 FTPPATH="-9.3"
     - PGVERSION=9.2 FTPPATH="-9.2"
+    - PGVERSION=9.1 FTPPATH="-9.1" NO_PGXS=1
 
 script: PATH=/usr/local/pgsql/bin:$PATH make
