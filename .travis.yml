@@ -14,8 +14,8 @@ install:
   - popd
   - echo "override CFLAGS += -Werror" >> Makefile
   - PATH=/usr/local/pgsql/bin:$PATH pg_config
-  - mv ${TRAVIS_BUILD_DIR} postgresql-${PGVERSION}/contrib/
-  - cd postgresql-${PGVERSION}/contrib/$(basename ${TRAVIS_BUILD_DIR})
+  - mv ${TRAVIS_BUILD_DIR} postgresql-${PGVERSION}/contrib/pgcov
+  - cd postgresql-${PGVERSION}/contrib/pgcov
 
 env:
   matrix:
