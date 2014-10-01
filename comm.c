@@ -156,58 +156,8 @@ nw_client_done(pgcovNetworkConn *conn)
 {
 	Assert(conn->sendbuf.len == 0);
 
-	/*
-	 * Send the DONE message and wait for the "nest" process to respond with a
-	 * DONE of its own.  This should ensure that we don't lose messages under
-	 * normal operation.
-	 */
 	nw_append_msg(conn, PGCOV_MSG_DONE);
 	nw_flush_msg(conn);
-
-	for (;;)
-	{
-		int ret;
-		struct timeval tv;
-		fd_set readfds;
-		char buf;
-
-		FD_ZERO(&readfds);
-		FD_SET(conn->sockfd, &readfds);
-
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
-		ret = select(conn->sockfd + 1, &readfds, NULL, NULL, &tv);
-		if (ret == -1 && errno != EINTR)
-			elog(ERROR, "select() failed: %s", strerror(errno));
-		else if (ret == -1)
-		{
-			CHECK_FOR_INTERRUPTS();
-			continue;
-		}
-		else if (ret == 0)
-		{
-			elog(WARNING, "still waiting for ACK from the nest process");
-			continue;
-		}
-
-		ret = recv(conn->sockfd, &buf, 1, 0);
-		if (ret == -1 && errno == EINTR)
-		{
-			CHECK_FOR_INTERRUPTS();
-			continue;
-		}
-		else if (ret == 1)
-		{
-			if (buf != PGCOV_MSG_DONE)
-				elog(FATAL, "unexpected message %d from server", buf);
-			break;
-		}
-		else
-		{
-			Assert(ret == 0);
-			elog(ERROR, "nest process closed connection");
-		}
-	}
 }
 
 static void
@@ -282,16 +232,13 @@ nw_parse_message(pgcovWorker *worker)
 				break;
 
 			case PGCOV_MSG_DONE:
-				if (conn->rcvbuf.len != 5)
-					elog(ERROR, "unexpected rcvbuf len %d after PGCOV_MSG_DONE", conn->rcvbuf.len);
-				conn->rcvbuf.len = 0;
-				errno = 0;
-				if (send(conn->sockfd, conn->rcvbuf.data, 1, 0) != 1)
-				{
-					elog(WARNING, "could not respond to PGCOV_MSG_DONE: %s", strerror(errno));
-					worker->done = true;
-				}
+			{
+				int32 msglen = nw_peek_uint32(conn->rcvbuf.data + 1) + 1;
+				if (msglen != 5)
+					elog(ERROR, "unexpected message len %d for PGCOV_MSG_DONE", conn->rcvbuf.len);
+				nw_buf_discard_message(conn);
 				break;
+			}
 
 			default:
 				elog(ERROR, "unrecognized message type %d", conn->rcvbuf.data[0]);
