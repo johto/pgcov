@@ -585,13 +585,18 @@ pgcov_worker_connect(pgcovNetworkConn *conn, const char *nest_entrance)
 
 	sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 	if (sockfd < 0)
+	{
+		freeaddrinfo(ai);
 		elog(FATAL, "could not create a socket: %s", strerror(errno));
+	}
 
 	if (connect(sockfd, ai->ai_addr, ai->ai_addrlen) < 0)
 	{
 		close(sockfd);
+		freeaddrinfo(ai);
 		elog(FATAL, "could not connect to %s: %s", "127.0.0.1", strerror(errno));
 	}
+	freeaddrinfo(ai);
 
 	init_pgcovNetworkConn(conn, sockfd);
 	//nw_append_binary(conn, hello_magic, strlen(hello_magic));
