@@ -105,7 +105,7 @@ fniter_stmt_iterate(PLpgSQL_function *func, PLpgSQL_stmt *stmt, fniter_context *
 
 				foreach(lc, casestmt->case_when_list)
 				{
-					if (fniter_body_iterate(func, stmt, ((PLpgSQL_case_when *) stmt)->stmts, context))
+					if (fniter_body_iterate(func, stmt, ((PLpgSQL_case_when *) lfirst(lc))->stmts, context))
 						return true;
 				}
 				if (fniter_body_iterate(func, stmt, casestmt->else_stmts, context))
