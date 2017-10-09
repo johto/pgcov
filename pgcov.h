@@ -12,6 +12,7 @@ typedef struct {
 extern MemoryContext pgcov_listener_mcxt;
 
 typedef struct {
+	MemoryContext mcxt;
 	int32 depth;
 	Oid fnoid;
 	char *fnsignature;

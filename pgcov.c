@@ -800,12 +800,12 @@ pgcov_plpgsql_func_beg(PLpgSQL_execstate *estate,
 
 	Assert(pgcov_call_stack != NIL);
 
-	oldctx = MemoryContextSwitchTo(pgcov_call_stack_mctx);
-
 	fn = (pgcovStackFrame *) linitial(pgcov_call_stack);
 	if (fn->fnoid != func->fn_oid)
 		elog(ERROR, "PL/PgSQL function oid %u does not match stack frame %u",
 			 func->fn_oid, fn->fnoid);
+
+	oldctx = MemoryContextSwitchTo(fn->mcxt);
 
 	/* look up prosrc */
 	proctup = SearchSysCache1(PROCOID, ObjectIdGetDatum(fn->fnoid));
@@ -887,6 +887,13 @@ pgcov_enter_func_guts(Oid fnoid)
 	oldctx = MemoryContextSwitchTo(pgcov_call_stack_mctx);
 
 	newfn = (pgcovStackFrame *) palloc(sizeof(pgcovStackFrame));
+	newfn->mcxt = AllocSetContextCreate(TopMemoryContext,
+										"pgcov stack frame memory context",
+										ALLOCSET_SMALL_MINSIZE,
+										ALLOCSET_SMALL_INITSIZE,
+										ALLOCSET_SMALL_MAXSIZE);
+	(void) MemoryContextSwitchTo(newfn->mcxt)
+
 	newfn->fnoid = fnoid;
 	newfn->lines = NIL;
 
@@ -930,9 +937,7 @@ pgcov_exit_func_guts(Oid fnoid)
 
 	pgcov_emit_function_coverage_report(fn);
 
-	if (fn->prosrc)
-		pfree(fn->prosrc);
-	pfree(fn->fnsignature);
+	MemoryContextDelete(fn->mcxt);
 	pfree(fn);
 
 	pgcov_call_stack = list_delete_first(pgcov_call_stack);
