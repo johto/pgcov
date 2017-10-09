@@ -795,11 +795,13 @@ pgcov_plpgsql_func_beg(PLpgSQL_execstate *estate,
 	Datum prosrc;
 	bool isnull;
 
+	if (estate->func->fn_oid == InvalidOid)
+		return;
+
 	Assert(pgcov_call_stack != NIL);
 
 	oldctx = MemoryContextSwitchTo(pgcov_call_stack_mctx);
 
-	fn = (pgcovStackFrame *) linitial(pgcov_call_stack);
 	/* TODO: handle InvalidOid for DO blocks */
 	if (fn->fnoid != func->fn_oid)
 		elog(ERROR, "PL/PgSQL function oid %u does not match stack frame %u",
@@ -829,6 +831,9 @@ static void
 pgcov_plpgsql_stmt_beg(PLpgSQL_execstate *estate,
 					   PLpgSQL_stmt *stmt)
 {
+	if (estate->func->fn_oid == InvalidOid)
+		return;
+
 	Assert(pgcov_call_stack != NIL);
 
 	/* skip dummy returns; see pl_comp.c */
@@ -844,6 +849,9 @@ pgcov_record_stmt_enter(PLpgSQL_execstate *estate, PLpgSQL_stmt *stmt)
 {
 	pgcovStackFrame *fn;
 	ListCell *lc;
+
+	if (estate->func->fn_oid == InvalidOid)
+		return;
 
 	Assert(pgcov_call_stack != NIL);
 	fn = (pgcovStackFrame *) linitial(pgcov_call_stack);
@@ -916,7 +924,6 @@ pgcov_exit_func_guts(Oid fnoid)
 
 	Assert(pgcov_call_stack != NIL);
 
-	/* if coverage reporting is enabled, send a coverage report now */
 	fn = (pgcovStackFrame *) linitial(pgcov_call_stack);
 	if (fn->fnoid != fnoid)
 		elog(FATAL, "XXX %d != %d", fn->fnoid, fnoid);
