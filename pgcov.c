@@ -892,7 +892,7 @@ pgcov_enter_func_guts(Oid fnoid)
 										ALLOCSET_SMALL_MINSIZE,
 										ALLOCSET_SMALL_INITSIZE,
 										ALLOCSET_SMALL_MAXSIZE);
-	(void) MemoryContextSwitchTo(newfn->mcxt)
+	(void) MemoryContextSwitchTo(newfn->mcxt);
 
 	newfn->fnoid = fnoid;
 	newfn->lines = NIL;
