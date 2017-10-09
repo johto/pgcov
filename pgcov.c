@@ -181,7 +181,11 @@ _PG_init(void)
 
 	/* shared memory init */
 	RequestAddinShmemSpace(1024);
+#if PG_VERSION_NUM >= 90600
+	RequestNamedLWLockTranche("pgcov", 1);
+#else
 	RequestAddinLWLocks(1);
+#endif
 
 	prev_shmem_startup_hook = shmem_startup_hook;
 	shmem_startup_hook = pgcov_shmem_startup;
@@ -221,7 +225,12 @@ pgcov_shmem_startup(void)
 	if (!found)
 	{
 		/* First time through ... */
+#if PG_VERSION_NUM >= 90600
+		pgcov->lock = &(GetNamedLWLockTranche("pgcov"))->lock;
+#else
 		pgcov->lock = LWLockAssign();
+#endif
+
 		pgcov->nest_entrance[0] = '\0';
 	}
 
