@@ -930,6 +930,9 @@ pgcov_exit_func_guts(Oid fnoid)
 
 	pgcov_emit_function_coverage_report(fn);
 
+	pfree(fn->fnsignature);
+	pfree(fn);
+
 	pgcov_call_stack = list_delete_first(pgcov_call_stack);
 	if (pgcov_call_stack == NIL)
 	{
