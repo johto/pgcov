@@ -98,6 +98,20 @@ fniter_stmt_iterate(PLpgSQL_function *func, PLpgSQL_stmt *stmt, fniter_context *
 #endif
 			}
 			break;
+		case PLPGSQL_STMT_CASE:
+			{
+				PLpgSQL_stmt_case *casestmt = (PLpgSQL_stmt_case *) stmt;
+				ListCell *lc;
+
+				foreach(lc, casestmt->case_when_list)
+				{
+					if (fniter_body_iterate(func, stmt, ((PLpgSQL_case_when *) stmt)->stmts, context))
+						return true;
+				}
+				if (fniter_body_iterate(func, stmt, casestmt->else_stmts, context))
+					return true;
+			}
+			break;
 		case PLPGSQL_STMT_LOOP:
 			if (fniter_body_iterate(func, stmt, ((PLpgSQL_stmt_loop *) stmt)->body, context))
 				return true;
