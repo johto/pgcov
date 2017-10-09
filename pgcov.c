@@ -930,6 +930,8 @@ pgcov_exit_func_guts(Oid fnoid)
 
 	pgcov_emit_function_coverage_report(fn);
 
+	if (fn->prosrc)
+		pfree(fn->prosrc);
 	pfree(fn->fnsignature);
 	pfree(fn);
 
