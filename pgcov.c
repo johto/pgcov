@@ -596,15 +596,6 @@ pgcov_get_active_listener(char entrance[MAX_ENTRANCE_SIZE])
 	return active;
 }
 
-/*
-Datum pgcov_(PG_FUNCTION_ARGS);
-PG_FUNCTION_INFO_V1(pgcov_);
-
-Datum
-pgcov_(PG_FUNCTION_ARGS)
-*/
-
-
 Datum pgcov_reset(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(pgcov_reset);
 
