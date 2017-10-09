@@ -802,7 +802,7 @@ pgcov_plpgsql_func_beg(PLpgSQL_execstate *estate,
 
 	oldctx = MemoryContextSwitchTo(pgcov_call_stack_mctx);
 
-	/* TODO: handle InvalidOid for DO blocks */
+	fn = (pgcovStackFrame *) linitial(pgcov_call_stack);
 	if (fn->fnoid != func->fn_oid)
 		elog(ERROR, "PL/PgSQL function oid %u does not match stack frame %u",
 			 func->fn_oid, fn->fnoid);
