@@ -1,0 +1,6 @@
+.*.swp
+/.deps
+/comm.o
+/func_iter.o
+/pgcov.o
+/pgcov.so
