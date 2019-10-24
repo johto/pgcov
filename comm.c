@@ -136,10 +136,7 @@ nw_flush_buffer(pgcovNetworkConn *conn)
 		if (ret == -1 && errno == EINTR)
 			continue;
 		else if (ret == -1)
-		{
-			int save_errno = errno;
-			elog(ERROR, "could not send data to the listener: %s", strerror(save_errno));
-		}
+			elog(ERROR, "could not send data to the listener: %m");
 		else if (ret == 0)
 			elog(FATAL, "connection closed by the listener");
 
@@ -298,14 +295,11 @@ pgcov_start_listener(pgcovNest *nest)
 	hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV;
 
 	if ((ret = getaddrinfo("127.0.0.1", "0", &hints, &res)) != 0)
-		elog(FATAL, "getaddrinfo() failed: %s", strerror(ret));
+		elog(FATAL, "getaddrinfo() failed: %m");
 
 	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (sockfd < 0)
-	{
-		int save_errno = errno;
-		elog(FATAL, "could not create a socket: %s", strerror(save_errno));
-	}
+		elog(FATAL, "could not create a socket: %m");
 
 	if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0)
 	{
@@ -324,19 +318,13 @@ pgcov_start_listener(pgcovNest *nest)
 	}
 
 	if (getsockname(sockfd, (struct sockaddr *) &localaddr, &addrlen) < 0)
-	{
-		int save_errno = errno;
-		elog(FATAL, "getsockname() failed: %s", strerror(save_errno));
-	}
+		elog(FATAL, "getsockname() failed: %m");
 
 	Assert(sizeof(nest->entrance) == MAX_ENTRANCE_SIZE);
 	ret = snprintf(nest->entrance, MAX_ENTRANCE_SIZE,
 					"%hu", ntohs(localaddr.sin_port));
 	if (ret < 0 || ret >= MAX_ENTRANCE_SIZE)
-	{
-		int save_errno = errno;
-		elog(FATAL, "snprintf() failed: %s", strerror(save_errno));
-	}
+		elog(FATAL, "snprintf() failed: %m");
 
 	elog(DEBUG1, "nest entrance: %s", nest->entrance);
 
@@ -398,6 +386,7 @@ pgcov_nest_accept(pgcovNest *nest)
 		return;
 	else if (sockfd == -1)
 	{
+		/* pgcov_nest_shutdown() will likely overwrite our errno */
 		int save_errno = errno;
 		pgcov_nest_shutdown(nest);
 		elog(ERROR, "could not accept(): %s", strerror(save_errno));
@@ -472,8 +461,7 @@ pgcov_nest_read_from_worker(pgcovNest *nest, pgcovWorker *worker)
 		return;
 	else if (ret == -1)
 	{
-		int save_errno = errno;
-		elog(WARNING, "read error: %s", strerror(save_errno));
+		elog(WARNING, "read error: %m");
 		goto done;
 	}
 	else if (ret == 0)
@@ -553,10 +541,7 @@ pgcov_gather_information(pgcovNest *nest)
 		tv.tv_usec = 0;
 		ret = select(maxsockfd+1, &readfds, NULL, NULL, &tv);
 		if (ret == -1 && errno != EINTR)
-		{
-			int save_errno = errno;
-			elog(FATAL, "select() failed: %s", strerror(save_errno));
-		}
+			elog(FATAL, "select() failed: %m");
 		else if (ret == -1 || ret == 0)
 		{
 			CHECK_FOR_INTERRUPTS();
@@ -596,7 +581,7 @@ pgcov_worker_connect(pgcovNetworkConn *conn, const char *nest_entrance)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
 	if ((ret = getaddrinfo("127.0.0.1", nest_entrance, &hints, &ai)) != 0)
-		elog(FATAL, "getaddrinfo() failed: %s", strerror(ret));
+		elog(FATAL, "getaddrinfo() failed: %m");
 
 	sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 	if (sockfd < 0)
